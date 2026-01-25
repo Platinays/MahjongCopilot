@@ -22,6 +22,8 @@ from common import utils
 from common.utils import FPSCounter
 from bot import Bot, get_bot
 
+from custom.notifier import GameNotifier
+
 
 METHODS_TO_IGNORE = [
     liqi.LiqiMethod.checkNetworkDelay,
@@ -382,6 +384,9 @@ class BotManager:
                     LOGGER.info("Game Started. Game Flow ID=%s", msg.flow_id)
                     self.game_flow_id = msg.flow_id
                     self.game_state = GameState(self.bot)    # create game state with bot
+
+                    self.game_state.notifier = GameNotifier(enable_popup=True, enable_sound=False, pause_seconds=5)
+                    
                     self.game_state.input(liqimsg)      # authGame -> mjai:start_game, no reaction
                     self.game_exception = None
                     self.automation.on_enter_game()

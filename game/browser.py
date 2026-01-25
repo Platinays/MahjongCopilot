@@ -12,6 +12,11 @@ from common import utils
 from common.utils import Folder, FPSCounter, list_children
 from common.log_helper import LOGGER
 
+from custom.config import load_config
+
+CONFIG_PATH = "custom/browser.yaml"
+_browser_cfg = load_config(CONFIG_PATH)["browser"]
+
 class GameBrowser:
     """ Wrapper for Playwright browser controlling maj-soul operations
     Browser runs in a thread, and actions are queued to be processed by the thread"""
@@ -91,42 +96,80 @@ class GameBrowser:
             load_extension_args = "--load-extension=" + ",".join(extensions_list)
 
         LOGGER.info('Starting Chromium, viewport=%dx%d, proxy=%s', self.width, self.height, proxy)
+
         with sync_playwright() as playwright:
+            browser_data_path = _browser_cfg["user_data_dir"]
+            chromium_path = _browser_cfg["chromium_executable"]
+
+            chromium = playwright.chromium
+
+            # ===== 基础参数（来自配置文件） =====
+            launch_args = list(_browser_cfg.get("args", []))
+            ignore_default_args = _browser_cfg.get("ignore_default_args", [])
+            headless = _browser_cfg.get("headless", False)
+
+            # ===== Chrome 扩展相关参数（运行期拼接） =====
             if enable_chrome_ext:
-                try:
-                    # Initilize browser
-                    chromium = playwright.chromium
-                    self.context = chromium.launch_persistent_context(
-                        user_data_dir=utils.sub_folder(Folder.BROWSER_DATA),
-                        headless=False,
-                        viewport={'width': self.width, 'height': self.height},
-                        proxy=proxy_object,
-                        ignore_default_args=["--enable-automation"],
-                        args=[
-                            "--noerrdialogs",
-                            "--no-sandbox",
-                            disable_extensions_except_args,
-                            load_extension_args
-                        ]
-                    )
-                except Exception as e:
-                    LOGGER.error('Error launching the browser: %s', e, exc_info=True)
-                    return
-            else:
-                try:
-                    # Initilize browser
-                    chromium = playwright.chromium
-                    self.context = chromium.launch_persistent_context(
-                        user_data_dir=utils.sub_folder(Folder.BROWSER_DATA),
-                        headless=False,
-                        viewport={'width': self.width, 'height': self.height},
-                        proxy=proxy_object,
-                        ignore_default_args=["--enable-automation"],
-                        args=["--noerrdialogs", "--no-sandbox"]
-                    )
-                except Exception as e:
-                    LOGGER.error('Error launching the browser: %s', e, exc_info=True)
-                    return
+                launch_args.extend([
+                    disable_extensions_except_args,
+                    load_extension_args
+                ])
+
+            try:
+                self.context = chromium.launch_persistent_context(
+                    user_data_dir=browser_data_path,
+                    executable_path=chromium_path,
+                    headless=headless,
+                    viewport={'width': self.width, 'height': self.height},
+                    proxy=proxy_object,
+                    ignore_default_args=ignore_default_args,
+                    args=launch_args
+                )
+            except Exception as e:
+                LOGGER.error("Error launching the browser: %s", e, exc_info=True)
+                return
+
+        # with sync_playwright() as playwright:
+        #     browser_data_path = _browser_cfg["user_data_dir"]
+        #     chromium_path = _browser_cfg["chromium_executable"]
+        #     # browser_data_path = utils.sub_folder(Folder.BROWSER_DATA)
+        #     if enable_chrome_ext:
+        #         try:
+        #             # Initilize browser
+        #             chromium = playwright.chromium
+        #             self.context = chromium.launch_persistent_context(
+        #                 user_data_dir=browser_data_path,
+        #                 executable_path=chromium_path,
+        #                 headless=False,
+        #                 viewport={'width': self.width, 'height': self.height},
+        #                 proxy=proxy_object,
+        #                 ignore_default_args=["--enable-automation"],
+        #                 args=[
+        #                     "--noerrdialogs",
+        #                     "--no-sandbox",
+        #                     disable_extensions_except_args,
+        #                     load_extension_args
+        #                 ]
+        #             )
+        #         except Exception as e:
+        #             LOGGER.error('Error launching the browser: %s', e, exc_info=True)
+        #             return
+        #     else:
+        #         try:
+        #             # Initilize browser
+        #             chromium = playwright.chromium
+        #             self.context = chromium.launch_persistent_context(
+        #                 user_data_dir=browser_data_path,
+        #                 executable_path=chromium_path,
+        #                 headless=False,
+        #                 viewport={'width': self.width, 'height': self.height},
+        #                 proxy=proxy_object,
+        #                 ignore_default_args=["--enable-automation"],
+        #                 args=["--noerrdialogs", "--no-sandbox"]
+        #             )
+        #         except Exception as e:
+        #             LOGGER.error('Error launching the browser: %s', e, exc_info=True)
+        #             return
 
             try:
                 self.page = self.context.new_page()

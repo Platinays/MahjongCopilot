@@ -41,6 +41,8 @@ class KyokuState:
         self.my_tsumohai:str = None         # tsumohai in mjai format, or None
         self.doras_ms:list[str] = []        # list of doras in ms tile format
 
+        self.oya:int = None                 # 庄家 seat id  <--- 新增属性
+
         ### flags
         self.pending_reach_acc:dict = None  # Pending MJAI reach accepted message
         self.first_round:bool = True        # flag marking if it is the first move in new round
@@ -83,6 +85,10 @@ class GameState:
         self.is_round_started:bool = False
         """ if any new round has started (so game info is available)"""
         self.is_game_ended:bool = False         # if game has ended    
+
+        self.notifier = None                    # custom notifier for human intervention
+        self.is_tonpuu = False
+        # self.reach_actor = None
              
     def get_game_info(self) -> GameInfo:
         """ Return game info. Return None if N/A"""        
@@ -244,6 +250,11 @@ class GameState:
             LOGGER.warning("No modeId in liqi_data['gameConfig']['meta']['modeId']")
             self.mode_id = -1
 
+        # if self.mode_id in TONPUU_MODE_IDS:
+        #     self.is_tonpuu = True
+        # else:
+        #     self.is_tonpuu = False
+
         seatList:list = liqi_data['seatList']
         if not seatList:
             LOGGER.debug("No seatList in liqi_data, game has likely ended")
@@ -267,6 +278,9 @@ class GameState:
             }
         )        
         self._react_all()
+
+
+
         return None     # no reaction for start_game     
     
     def ms_new_round(self, liqi_data:dict) -> dict:
@@ -279,7 +293,8 @@ class GameState:
         dora_marker = mj_helper.cvt_ms2mjai(liqi_data_data['doras'][0])
         self.kyoku_state.doras_ms = [dora_marker]
         self.kyoku_state.honba = liqi_data_data['ben']
-        oya = liqi_data_data['ju']           # oya is also the seat id of East
+        oya = liqi_data_data['ju']          # oya is seat id of East
+        self.kyoku_state.oya = oya          # <--- 保存庄家信息
         self.kyoku_state.kyoku = oya + 1
         self.kyoku_state.jikaze  = MJAI_WINDS[(self.seat - oya)]
         kyotaku = liqi_data_data['liqibang']
@@ -315,6 +330,14 @@ class GameState:
                 }
         else:
             raise RuntimeError(f"Unexpected tehai tiles: {len(my_tehai_ms)=}")
+        
+
+        if self.notifier:
+            try:
+                self.notifier.on_new_round(self)    # 最后两局提醒
+            except Exception as e:
+                LOGGER.warning("Notifier on_new_round error ignored: %s", e)
+
         
         # append messages and react
         start_kyoku_msg = {
@@ -388,9 +411,15 @@ class GameState:
                 self.kyoku_state.my_tehai = mj_helper.sort_mjai_tiles(self.kyoku_state.my_tehai)            
             
             if liqi_data_data['isLiqi']:     # Player declares reach
-                if liqi_data_data['seat'] == self.seat:  # self reach
+                if actor == self.seat:  # self reach
                     self.kyoku_state.self_in_reach = True                    
-                
+                # if not self-reach, see if to notify
+                if self.notifier:
+                    try:
+                        self.notifier.on_reach(actor, self)
+                    except Exception as e:
+                        LOGGER.warning("Notifier error ignored: %s", e)
+
                 self.kyoku_state.player_reach[actor] = True
                 self.mjai_pending_input_msgs.append(
                     {
@@ -403,6 +432,7 @@ class GameState:
                     'type': MjaiType.REACH_ACCEPTED,
                     'actor': actor
                     }
+                
                     
             self.mjai_pending_input_msgs.append(
                 {
@@ -599,6 +629,9 @@ class GameState:
         if data: 
             if 'operation' not in data or 'operationList' not in data['operation'] or len(data['operation']['operationList']) == 0:
                 return None
+            
+        # LOGGER.debug("Mortal Bot input (pending msgs): %s", self.mjai_pending_input_msgs)
+
         try:
             if len(self.mjai_pending_input_msgs) == 1:
                 LOGGER.info("Bot in: %s", self.mjai_pending_input_msgs[0])
@@ -609,6 +642,9 @@ class GameState:
         except Exception as e:
             LOGGER.error("Bot react error: %s", e, exc_info=True)
             output_reaction = None
+
+        # LOGGER.debug("Mortal Bot raw output: %s", output_reaction)  # 🔹 再打印输出
+
         self.mjai_pending_input_msgs = [] # clear intput queue
         
         if output_reaction is None:

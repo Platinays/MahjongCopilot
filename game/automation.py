@@ -22,6 +22,7 @@ from .img_proc import ImgTemp, GameVisual
 from .browser import GameBrowser
 from .game_state import GameInfo, GameState
 
+from custom.shanten import shanten
 
 class Positions:
     """ Screen coordinates constants. in 16 x 9 resolution"""
@@ -425,7 +426,23 @@ class Automation:
     
     def randomize_action(self, action:dict, gi:GameInfo) -> dict:
         """ Randomize ai choice: pick according to probaility from top 3 options"""
-        n = self.st.ai_randomize_choice     # randomize strength. 0 = no random, 5 = according to probability
+        if self.st.ai_randomize_choice == -1:
+            if gi.n_other_reach() == 0:
+                # 计算手牌向听数
+                n_shanten = shanten(gi.my_tehai, gi.my_tsumohai)
+                # 映射到 0~5 范围
+                n = max(n_shanten, 0)
+                n = min(n, 5)
+                LOGGER.debug(
+                    "无人立直，计算手牌向听数为 %d 向听，n 设为 %d, 手牌为 %s, 自摸牌为 %s",
+                    n_shanten, n, gi.my_tehai, gi.my_tsumohai
+                )
+            else:
+                LOGGER.debug("有他人立直，n 设为 0")
+                return action
+        else: 
+            n = self.st.ai_randomize_choice     # randomize strength. 0 = no random, 5 = according to probability
+
         if n == 0:
             return action
         mjai_type = action['type']
@@ -800,6 +817,14 @@ class Automation:
             if res:     # stop on main menu
                 LOGGER.debug("Visual sees main menu with diff %.1f", diff)
                 self.ui_state = UiState.MAIN_MENU
+                # ===== 随机等待 3~5 分钟，防止过快开下一局 =====
+                sleep_seconds = random.uniform(180, 300)
+                LOGGER.info(
+                    "Game ended, waiting %.1f seconds before returning to main menu",
+                    sleep_seconds
+                )
+                yield ActionStepDelay(sleep_seconds)
+                
                 break
             
             yield ActionStepDelay(random.uniform(2,3))

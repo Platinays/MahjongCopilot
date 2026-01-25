@@ -1,0 +1,12 @@
+browser:
+  user_data_dir: C:/Users/Platina/MahjongCopilot/browser_data
+  chromium_executable: C:/Users/Platina/MahjongCopilot/_internal/playwright/driver/package/.local-browsers/chromium-1105/chrome-win/chrome.exe
+
+  headless: false
+
+  args:
+    - --noerrdialogs
+    - --no-sandbox
+
+  ignore_default_args:
+    - --enable-automation
