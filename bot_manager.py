@@ -58,6 +58,8 @@ class BotManager:
         self.is_loading_bot:bool = False                # is bot being loaded
         self.main_thread_exception:Exception = None     # Exception that had stopped the main thread
         self.game_exception:Exception = None            # game run time error (but does not break main thread)        
+
+        self.auto_agari_enabled = False
         
         
     def start(self):
@@ -398,6 +400,20 @@ class BotManager:
                 # Feed msg to game_state for processing with AI bot
                 LOGGER.debug('Game msg: %s', str(liqimsg))
                 reaction = self.game_state.input(liqimsg)
+
+                # try:
+                if liqimsg['method'] == '.lq.ActionPrototype':
+                    if liqimsg['data']['name'] == 'ActionNewRound':
+                        self.auto_agari_enabled = False
+                    elif self.auto_agari_enabled == False:
+                        bakaze = self.game_state.kyoku_state.bakaze
+                        kyoku = self.game_state.kyoku_state.kyoku
+                        if bakaze == 'E' or (bakaze == 'S' and kyoku <= 2):
+                            self._enable_auto_agari()
+                        self.auto_agari_enabled = True
+                # except Exception:
+                #     pass
+
                 if reaction:
                     self._do_automation(reaction)
                 else:
@@ -423,6 +439,9 @@ class BotManager:
                 self.automation.automate_send_emoji()
         else:           # move mouse around randomly
             self.automation.automate_idle_mouse_move(0.05)
+    
+    def _enable_auto_agari(self):
+        self.automation.automate_enable_auto_agari()
         
     def _process_end_game(self):
         # End game processes

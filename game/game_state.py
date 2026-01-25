@@ -41,7 +41,10 @@ class KyokuState:
         self.my_tsumohai:str = None         # tsumohai in mjai format, or None
         self.doras_ms:list[str] = []        # list of doras in ms tile format
 
-        self.oya:int = None                 # 庄家 seat id  <--- 新增属性
+        self.oya:int = None                 # 庄家 seat id
+        self.yama:int = None                # 牌山余牌数
+        self.shanten:int = None             # 自己的向听数
+        self.fuuros_ms:list = None           # 四家的副露情况
 
         ### flags
         self.pending_reach_acc:dict = None  # Pending MJAI reach accepted message
@@ -100,6 +103,11 @@ class GameState:
                 honba = self.kyoku_state.honba,
                 my_tehai = self.kyoku_state.my_tehai,
                 my_tsumohai = self.kyoku_state.my_tsumohai,
+                doras_ms = self.kyoku_state.doras_ms,
+                fuuros_ms = self.kyoku_state.fuuros_ms,
+                oya = self.kyoku_state.oya,
+                yama = self.kyoku_state.yama,
+                shanten = self.kyoku_state.shanten,
                 self_reached = self.kyoku_state.self_in_reach,
                 self_seat = self.seat,
                 player_reached = self.kyoku_state.player_reach.copy(),
@@ -291,11 +299,13 @@ class GameState:
         liqi_data_data = liqi_data['data']
         self.kyoku_state.bakaze = MJAI_WINDS[liqi_data_data['chang']]
         dora_marker = mj_helper.cvt_ms2mjai(liqi_data_data['doras'][0])
-        self.kyoku_state.doras_ms = [dora_marker]
+        self.kyoku_state.doras_ms = liqi_data_data['doras']
         self.kyoku_state.honba = liqi_data_data['ben']
         oya = liqi_data_data['ju']          # oya is seat id of East
         self.kyoku_state.oya = oya          # <--- 保存庄家信息
         self.kyoku_state.kyoku = oya + 1
+        self.kyoku_state.yama = 69
+        self.kyoku_state.fuuros_ms = [[] for _ in range(4)]
         self.kyoku_state.jikaze  = MJAI_WINDS[(self.seat - oya)]
         kyotaku = liqi_data_data['liqibang']
         self.player_scores = liqi_data_data['scores']
@@ -396,6 +406,9 @@ class GameState:
                     'pai': tile_mjai
                 }
             )
+
+            self.kyoku_state.yama = liqi_data_data['leftTileCount']   # 更新牌山余牌数
+
             return self._react_all(liqi_data_data)
         
         # LiqiAction.DiscardTile -> MJAI_TYPE.DAHAI
@@ -451,6 +464,8 @@ class GameState:
             target = actor
             consumed_mjai = []
             tile_mjai = ''
+            self.kyoku_state.fuuros_ms[actor].extend(liqi_data_data['tiles'])
+            # LOGGER.debug("Action: fuuro, Actor: %d, fuuros_ms: %s, liqi_data_data: %s", actor, self.kyoku_state.fuuros_ms, liqi_data_data)
             for idx, fr in enumerate(liqi_data_data['froms']):
                 if fr != actor:
                     target = fr
@@ -506,6 +521,7 @@ class GameState:
         # LiqiAction.AnGangAddGang -> MJAI ANKAN / KAKAN
         elif liqi_data_name == LiqiAction.AnGangAddGang:
             actor = liqi_data_data['seat']
+            self.kyoku_state.fuuros_ms[actor].extend(liqi_data_data['tiles'])
             match liqi_data_data['type']:
                 case MSGangType.AnGang:
                     tile_mjai = mj_helper.cvt_ms2mjai(liqi_data_data['tiles'])
@@ -651,6 +667,12 @@ class GameState:
             return None
         else:
             LOGGER.info("Bot out: %s", output_reaction)
+
+            try:
+                self.kyoku_state.shanten = output_reaction['meta']['shanten']
+            except Exception:
+                pass
+
             if self.game_mode == GameMode.MJ3P:
                 is_3p = True
             else:

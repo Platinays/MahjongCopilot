@@ -269,6 +269,11 @@ class GameInfo:
     honba:int = None                # honba 本场 (times of consequetive dealing)
     my_tehai:list = None            # tiles in hand
     my_tsumohai:str = None          # new drawn tile if any
+    doras_ms:list = None            # 宝牌表示牌，雀魂格式 (0p, 1z)
+    fuuros_ms:list = None           # 含有四个列表的列表，表示副露，index为绝对座次
+    oya:int = None                  # 庄家是谁
+    yama:int = None                 # 牌山余牌数
+    shanten:int = None              # 手牌向听数
     self_reached:bool = False       # if self is in REACH state
     self_seat:int = None            # self seat index
     player_reached:list[bool] = field(default_factory=lambda: [False]*4)  # players in REACH state

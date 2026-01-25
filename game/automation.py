@@ -22,10 +22,11 @@ from .img_proc import ImgTemp, GameVisual
 from .browser import GameBrowser
 from .game_state import GameInfo, GameState
 
-from custom.shanten import shanten
+from custom.adaptive_n import adaptive_n
 
 class Positions:
     """ Screen coordinates constants. in 16 x 9 resolution"""
+    AUTO_AGARI = (0.43, 4.83)
     TEHAI_X = [
         2.23125,    3.021875,   3.8125,     4.603125,   5.39375,    6.184375,   6.975,
         7.765625,   8.55625,    9.346875,   10.1375,    10.928125,  11.71875,   12.509375]
@@ -426,20 +427,9 @@ class Automation:
     
     def randomize_action(self, action:dict, gi:GameInfo) -> dict:
         """ Randomize ai choice: pick according to probaility from top 3 options"""
-        if self.st.ai_randomize_choice == -1:
-            if gi.n_other_reach() == 0:
-                # 计算手牌向听数
-                n_shanten = shanten(gi.my_tehai, gi.my_tsumohai)
-                # 映射到 0~5 范围
-                n = max(n_shanten, 0)
-                n = min(n, 5)
-                LOGGER.debug(
-                    "无人立直，计算手牌向听数为 %d 向听，n 设为 %d, 手牌为 %s, 自摸牌为 %s",
-                    n_shanten, n, gi.my_tehai, gi.my_tsumohai
-                )
-            else:
-                LOGGER.debug("有他人立直，n 设为 0")
-                return action
+        # 新设置选项："-1"，采用adaptive n（在0到5之间变动），根据场面价值决定，价值越高n越低
+        if self.st.ai_randomize_choice < 0:
+            n = adaptive_n(gi)
         else: 
             n = self.st.ai_randomize_choice     # randomize strength. 0 = no random, 5 = according to probability
 
@@ -449,8 +439,8 @@ class Automation:
         if mjai_type == MjaiType.DAHAI:
             orig_pai = action['pai']
             options:dict = action['meta_options']            # e.g. {'1m':0.95, 'P':0.045, 'N':0.005, ...}
-            # get dahai options (tile only) from top 3
-            top_ops:list = [(k,v) for k,v in options[:3] if k in MJAI_TILES_SORTED]        
+            # get dahai options (tile only) from top 3 -> top 5
+            top_ops:list = [(k,v) for k,v in options[:5] if k in MJAI_TILES_SORTED]        
             #pick from top3 according to probability
             power = 1 / (0.2 * n)
             sum_probs = sum([v**power for k,v in top_ops])
@@ -540,6 +530,21 @@ class Automation:
         self._task = AutomationTask(self.executor, f"SendEmoji{idx}", f"Send emoji {idx}")
         self._task.start_action_steps(steps, None)
         self.last_emoji_time = time.time()
+
+    
+    def automate_enable_auto_agari(self):
+        """ Enable auto agari"""
+        if not self.can_automate(True, UiState.IN_GAME):
+            return
+        x,y = Positions.AUTO_AGARI
+        steps = [ActionStepDelay(random.uniform(0.5, 0.6)), ActionStepMove(x*self.scaler, y*self.scaler)]
+        steps.append(ActionStepDelay(random.uniform(0.1, 0.2)))
+        steps.append(ActionStepMouseDown())
+        steps.append(ActionStepDelay(random.uniform(0.2, 0.3)))
+        steps.append(ActionStepMouseUp())
+        self._task = AutomationTask(self.executor, "EnableAutoAgari", "Enable Auto Agari")
+        self._task.start_action_steps(steps, None)
+
     
     def automate_idle_mouse_move(self, prob:float):
         """ move mouse around to avoid AFK. according to probability"""
@@ -820,11 +825,11 @@ class Automation:
                 # ===== 随机等待 3~5 分钟，防止过快开下一局 =====
                 sleep_seconds = random.uniform(180, 300)
                 LOGGER.info(
-                    "Game ended, waiting %.1f seconds before returning to main menu",
+                    "Game ended, waiting %.1f seconds before moving into next game",
                     sleep_seconds
                 )
                 yield ActionStepDelay(sleep_seconds)
-                
+
                 break
             
             yield ActionStepDelay(random.uniform(2,3))
