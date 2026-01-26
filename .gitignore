@@ -14,6 +14,7 @@ venv/
 *.dist
 
 # Local folder/files
+custom/browser.yaml
 browser_data/
 log/
 mitm_config/
