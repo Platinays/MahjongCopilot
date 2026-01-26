@@ -41,10 +41,12 @@ class KyokuState:
         self.my_tsumohai:str = None         # tsumohai in mjai format, or None
         self.doras_ms:list[str] = []        # list of doras in ms tile format
 
+        self.fuuros_ms:list = None          # 四家的副露情况
         self.oya:int = None                 # 庄家 seat id
         self.yama:int = None                # 牌山余牌数
         self.shanten:int = None             # 自己的向听数
-        self.fuuros_ms:list = None           # 四家的副露情况
+        self.scores:list = None             # 四家点数
+        self.n_riichibou:int = None         # 立直棒数量
 
         ### flags
         self.pending_reach_acc:dict = None  # Pending MJAI reach accepted message
@@ -108,6 +110,9 @@ class GameState:
                 oya = self.kyoku_state.oya,
                 yama = self.kyoku_state.yama,
                 shanten = self.kyoku_state.shanten,
+                scores = self.kyoku_state.scores,
+                n_riichibou = self.kyoku_state.n_riichibou,
+
                 self_reached = self.kyoku_state.self_in_reach,
                 self_seat = self.seat,
                 player_reached = self.kyoku_state.player_reach.copy(),
@@ -305,6 +310,8 @@ class GameState:
         self.kyoku_state.oya = oya          # <--- 保存庄家信息
         self.kyoku_state.kyoku = oya + 1
         self.kyoku_state.yama = 69
+        self.kyoku_state.scores = liqi_data_data['scores']
+        self.kyoku_state.n_riichibou = liqi_data_data['liqibang']
         self.kyoku_state.fuuros_ms = [[] for _ in range(4)]
         self.kyoku_state.jikaze  = MJAI_WINDS[(self.seat - oya)]
         kyotaku = liqi_data_data['liqibang']

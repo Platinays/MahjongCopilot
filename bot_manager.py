@@ -358,6 +358,10 @@ class BotManager:
             try:
                 liqimsg = self.liqi_parser.parse(msg.content)
             except Exception as e:
+                if msg.content[0] == 0x03 and msg.content[3:] == b'\n\x00\x12\x00':
+                    return
+                elif msg.content[0] == 0x02 and b'.lq.Route.heartbeat' in msg.content:
+                    return
                 LOGGER.warning("Failed to parse liqi msg: %s\nError: %s", msg.content, e)
                 return
             liqi_id = liqimsg.get("id")

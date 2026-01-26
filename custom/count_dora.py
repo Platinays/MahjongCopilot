@@ -8,6 +8,8 @@ from common.log_helper import LOGGER
 
 # ---------- parsing ----------
 
+FLAG_DEBUG: bool = False
+
 HONOR_MAP = {
     'E': 1, 'S': 2, 'W': 3, 'N': 4,
     'P': 5, 'F': 6, 'C': 7,
@@ -89,33 +91,37 @@ def count_dora(
     for raw, rank, suit, is_red in parsed_tiles:
         if is_red:
             red_count += 1
-            LOGGER.debug("aka dora: %s (rank=%d suit=%s)", raw, rank, suit)
+            if FLAG_DEBUG:
+                LOGGER.debug("aka dora: %s (rank=%d suit=%s)", raw, rank, suit)
 
     # ---------- normal dora ----------
     dora_counter = Counter()
     for raw, rank, suit, _ in parsed_indicators:
         dora = next_dora(rank, suit)
         dora_counter[dora] += 1
-        LOGGER.debug(
-            "dora indicator: %s -> dora: %d%s",
-            raw, dora[0], dora[1]
-        )
+        if FLAG_DEBUG:
+            LOGGER.debug(
+                "dora indicator: %s -> dora: %d%s",
+                raw, dora[0], dora[1]
+            )
 
     normal_dora = 0
     for raw, rank, suit, _ in parsed_tiles:
         cnt = dora_counter.get((rank, suit), 0)
         if cnt > 0:
             normal_dora += cnt
-            LOGGER.debug(
-                "dora: %s (rank=%d suit=%s) x%d",
-                raw, rank, suit, cnt
-            )
+            if FLAG_DEBUG:
+                LOGGER.debug(
+                    "dora: %s (rank=%d suit=%s) x%d",
+                    raw, rank, suit, cnt
+                )
 
     total = red_count + normal_dora
-    LOGGER.debug(
-        "dora summary: normal=%d, aka=%d, total=%d",
-        normal_dora, red_count, total
-    )
+    if FLAG_DEBUG:
+        LOGGER.debug(
+            "dora summary: normal=%d, aka=%d, total=%d",
+            normal_dora, red_count, total
+        )
 
     return total
 

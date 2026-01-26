@@ -22,7 +22,7 @@ from .img_proc import ImgTemp, GameVisual
 from .browser import GameBrowser
 from .game_state import GameInfo, GameState
 
-from custom.adaptive_n import adaptive_n
+import custom.joukyou as jk
 
 class Positions:
     """ Screen coordinates constants. in 16 x 9 resolution"""
@@ -429,7 +429,7 @@ class Automation:
         """ Randomize ai choice: pick according to probaility from top 3 options"""
         # 新设置选项："-1"，采用adaptive n（在0到5之间变动），根据场面价值决定，价值越高n越低
         if self.st.ai_randomize_choice < 0:
-            n = adaptive_n(gi)
+            n = jk.adaptive_n(gi)
         else: 
             n = self.st.ai_randomize_choice     # randomize strength. 0 = no random, 5 = according to probability
 
@@ -439,8 +439,24 @@ class Automation:
         if mjai_type == MjaiType.DAHAI:
             orig_pai = action['pai']
             options:dict = action['meta_options']            # e.g. {'1m':0.95, 'P':0.045, 'N':0.005, ...}
-            # get dahai options (tile only) from top 3 -> top 5
-            top_ops:list = [(k,v) for k,v in options[:5] if k in MJAI_TILES_SORTED]        
+            # get dahai options (tile only) from top 3 -> all
+            top_ops:list = [(k,v) for k,v in options[:] if k in MJAI_TILES_SORTED]
+            LOGGER.debug(
+                "top_ops before adjustment: [%s]",
+                ", ".join(f"{k}: {v:.2%}" for k, v in top_ops)
+            )    
+            try:
+                if jk.is_haipaiori(gi):
+                    top_ops = jk.haipaiori_ops(top_ops, gi)
+                elif jk.is_defensive(gi):
+                    top_ops = jk.defensive_ops(top_ops)
+            except Exception as e:
+                LOGGER.error('新特性的未知异常: %s', e)
+            LOGGER.debug(
+                "top_ops after adjustment: [%s]",
+                ", ".join(f"{k}: {v:.2%}" for k, v in top_ops)
+            )    
+
             #pick from top3 according to probability
             power = 1 / (0.2 * n)
             sum_probs = sum([v**power for k,v in top_ops])
