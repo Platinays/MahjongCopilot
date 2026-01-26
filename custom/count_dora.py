@@ -3,7 +3,6 @@
 # ==================================================
 
 from collections import Counter
-from typing import Iterable, Optional, Tuple
 from common.log_helper import LOGGER
 
 # ---------- parsing ----------
@@ -18,7 +17,7 @@ HONOR_MAP = {
 REV_HONOR_MAP = {v: k for k, v in HONOR_MAP.items()}
 
 
-def parse_tile(tile: str) -> Tuple[int, str, bool]:
+def parse_tile(tile: str) -> tuple[int, str, bool]:
     """
     Normalize a tile string into (rank, suit, is_red)
 
@@ -55,7 +54,7 @@ def parse_tile(tile: str) -> Tuple[int, str, bool]:
 
 # ---------- dora logic ----------
 
-def next_dora(rank: int, suit: str) -> Tuple[int, str]:
+def next_dora(rank: int, suit: str) -> tuple[int, str]:
     """Convert dora indicator to actual dora"""
     if suit == 'z':
         # winds
@@ -71,9 +70,9 @@ def next_dora(rank: int, suit: str) -> Tuple[int, str]:
 # ---------- main API ----------
 
 def count_dora(
-    dora_indicators: Iterable[str],
-    hand_tiles: Iterable[str],
-    open_tiles: Optional[Iterable[str]] = None,
+    dora_indicators: list[str],
+    hand_tiles: list[str],
+    open_tiles: list[str] = None,
 ) -> int:
     """
     Count total dora + red dora.
