@@ -23,6 +23,7 @@ from .browser import GameBrowser
 from .game_state import GameInfo, GameState
 
 import custom.joukyou as jk
+import custom.strategy_engine as se
 
 class Positions:
     """ Screen coordinates constants. in 16 x 9 resolution"""
@@ -429,7 +430,16 @@ class Automation:
         """ Randomize ai choice: pick according to probaility from top 3 options"""
         # 新设置选项："-1"，采用adaptive n（在0到5之间变动），根据场面价值决定，价值越高n越低
         if self.st.ai_randomize_choice < 0:
-            n = jk.adaptive_n(gi)
+            try:
+                reaction = se.decide(action, gi)
+                if reaction['type'] == 'dahai' and gi.my_tsumohai and gi.my_tsumohai == reaction['pai']:
+                    reaction['tsumogiri'] = True
+                else:
+                    reaction['tsumogiri'] = False
+
+                return reaction
+            except:
+                return action
         else: 
             n = self.st.ai_randomize_choice     # randomize strength. 0 = no random, 5 = according to probability
 
@@ -445,17 +455,17 @@ class Automation:
                 "top_ops before adjustment: [%s]",
                 ", ".join(f"{k}: {v:.2%}" for k, v in top_ops)
             )    
-            try:
-                if jk.is_haipaiori(gi):
-                    top_ops = jk.haipaiori_ops(top_ops, gi)
-                elif jk.is_defensive(gi):
-                    top_ops = jk.defensive_ops(top_ops)
-            except Exception as e:
-                LOGGER.error('新特性的未知异常: %s', e)
-            LOGGER.debug(
-                "top_ops after adjustment: [%s]",
-                ", ".join(f"{k}: {v:.2%}" for k, v in top_ops)
-            )    
+            # try:
+            #     if jk.is_haipaiori(gi):
+            #         top_ops = jk.haipaiori_ops(top_ops, gi)
+            #     elif jk.is_defensive(gi):
+            #         top_ops = jk.defensive_ops(top_ops)
+            # except Exception as e:
+            #     LOGGER.error('新特性的未知异常: %s', e)
+            # LOGGER.debug(
+            #     "top_ops after adjustment: [%s]",
+            #     ", ".join(f"{k}: {v:.2%}" for k, v in top_ops)
+            # )    
 
             #pick from top3 according to probability
             power = 1 / (0.2 * n)
@@ -839,7 +849,7 @@ class Automation:
                 LOGGER.debug("Visual sees main menu with diff %.1f", diff)
                 self.ui_state = UiState.MAIN_MENU
                 # ===== 随机等待 3~5 分钟，防止过快开下一局 =====
-                sleep_seconds = random.uniform(180, 300)
+                sleep_seconds = random.uniform(30, 150)
                 LOGGER.info(
                     "Game ended, waiting %.1f seconds before moving into next game",
                     sleep_seconds

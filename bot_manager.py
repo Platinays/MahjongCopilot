@@ -391,7 +391,8 @@ class BotManager:
                     self.game_flow_id = msg.flow_id
                     self.game_state = GameState(self.bot)    # create game state with bot
 
-                    self.game_state.notifier = GameNotifier(enable_popup=True, enable_sound=False, pause_seconds=5)
+                    # self.game_state.notifier = GameNotifier(enable_popup=True, enable_sound=False, pause_seconds=5)
+                    self.game_state.notifier = None
                     
                     self.game_state.input(liqimsg)      # authGame -> mjai:start_game, no reaction
                     self.game_exception = None

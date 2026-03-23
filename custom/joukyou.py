@@ -3,15 +3,31 @@ from common.log_helper import LOGGER
 from custom.count_dora import count_dora, parse_tile, next_dora
 
 FLAG_DEBUG: bool = False
+MS_2_MJAI = {
+    'E': '1z',
+    'S': '2z',
+    'W': '3z',
+    'N': '4z',
+    'P': '5z',
+    'F': '6z',
+    'C': '7z',
+}
+HONORS = {'E', 'S', 'W', 'N', 'P', 'F', 'C'}
 
 def is_honor(tile: str) -> bool:
     """
     Return True if tile is an honor tile.
     Supports mjai (E,S,W,N,P,F,C) and mahjong soul (1z-7z)
     """
-    if tile in {'E', 'S', 'W', 'N', 'P', 'F', 'C'}:
+    if tile in HONORS:
         return True
     return len(tile) == 2 and tile[1] == 'z'
+
+def is_normal_dora(tile: str, dora_indicators: list[str]) -> bool:
+    if tile in HONORS:
+        tile = MS_2_MJAI[tile]
+    tile_split = tuple(tile[:2])
+    return tile_split in ms_dora_to_actual(dora_indicators)
 
 
 def ms_dora_to_actual(dora_indicators: list[str]) -> set[tuple[int, str]]:
@@ -26,7 +42,7 @@ def ms_dora_to_actual(dora_indicators: list[str]) -> set[tuple[int, str]]:
     return doras
 
 
-def endgame_buffer(gi) -> int:
+def endgame_buffer(gi:GameInfo) -> int:
     """立直棒 + 本场供托对点差安全线的修正"""
     return gi.n_riichibou * 1000 + gi.honba * 400
 
@@ -285,3 +301,60 @@ def haipaiori_ops(ops: list[tuple[str, float]], gi) -> list[tuple[str, float]]:
 
     return out
 
+def count_self_z1928(gi: GameInfo) -> float:
+    """
+    统计 self 手牌中的：
+    - 1 / 9 数牌 +1
+    - 字牌 (z) +1
+    - 2 / 8 数牌 +0.5
+    """
+    total = 0.0
+
+    for tile in gi.my_tehai + [gi.my_tsumohai] if gi.my_tsumohai else gi.my_tehai:
+        if tile in HONORS:
+            tile = MS_2_MJAI[tile]
+        num = tile[0]
+        suit = tile[1]
+
+        # 字牌
+        if suit == "z":
+            total += 1
+            continue
+
+        # 数牌
+        if num == 1 or num == 9:
+            total += 1
+        elif num == 2 or num == 8:
+            total += 0.5
+
+    return total
+
+def self_hand_value(gi: GameInfo) -> int:
+    v = count_dora(gi.doras_ms, gi.my_tehai + [gi.my_tsumohai] if gi.my_tsumohai else gi.my_tehai, gi.fuuros_ms[gi.self_seat])
+    if gi.oya == gi.self_seat:
+        v += 1
+    if has_renfuu(gi, 'self'):
+        v += 2
+    if count_self_z1928(gi) <= 6:
+        v += 1
+    return v
+
+def has_renfuu(gi: GameInfo, mode: str):
+    if mode == 'self':
+        if gi.jikaze != gi.bakaze:
+            return False
+        
+        tiles: list[str] = (gi.my_tehai + [gi.my_tsumohai] if gi.my_tsumohai else gi.my_tehai) + gi.fuuros_ms[gi.self_seat]
+        return tiles.count(gi.bakaze) >= 2
+    else:
+        if gi.bakaze == 'E':
+            tiles: list[str] = gi.fuuros_ms[0]
+        elif gi.bakaze == 'S':
+            tiles: list[str] = gi.fuuros_ms[1]
+        elif gi.bakaze == 'W':
+            tiles: list[str] = gi.fuuros_ms[2]
+        elif gi.bakaze == 'N':
+            tiles: list[str] = gi.fuuros_ms[3]
+        else:
+            return False
+        return tiles.count(gi.bakaze) >= 2
