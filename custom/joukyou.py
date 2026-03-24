@@ -3,7 +3,7 @@ from common.log_helper import LOGGER
 from custom.count_dora import count_dora, parse_tile, next_dora
 
 FLAG_DEBUG: bool = False
-MS_2_MJAI = {
+MJAI_2_MS = {
     'E': '1z',
     'S': '2z',
     'W': '3z',
@@ -12,20 +12,20 @@ MS_2_MJAI = {
     'F': '6z',
     'C': '7z',
 }
-HONORS = {'E', 'S', 'W', 'N', 'P', 'F', 'C'}
+MS_2_MJAI = {v: k for (k, v) in MJAI_2_MS.items()}
 
 def is_honor(tile: str) -> bool:
     """
     Return True if tile is an honor tile.
     Supports mjai (E,S,W,N,P,F,C) and mahjong soul (1z-7z)
     """
-    if tile in HONORS:
+    if tile in MJAI_2_MS:
         return True
     return len(tile) == 2 and tile[1] == 'z'
 
 def is_normal_dora(tile: str, dora_indicators: list[str]) -> bool:
-    if tile in HONORS:
-        tile = MS_2_MJAI[tile]
+    if tile in MJAI_2_MS:
+        tile = MJAI_2_MS[tile]
     tile_split = tuple(tile[:2])
     return tile_split in ms_dora_to_actual(dora_indicators)
 
@@ -311,8 +311,8 @@ def count_self_z1928(gi: GameInfo) -> float:
     total = 0.0
 
     for tile in gi.my_tehai + [gi.my_tsumohai] if gi.my_tsumohai else gi.my_tehai:
-        if tile in HONORS:
-            tile = MS_2_MJAI[tile]
+        if tile in MJAI_2_MS:
+            tile = MJAI_2_MS[tile]
         num = tile[0]
         suit = tile[1]
 
@@ -329,12 +329,23 @@ def count_self_z1928(gi: GameInfo) -> float:
 
     return total
 
+def count_yakuhai_toitsu(gi: GameInfo) -> int:
+    tiles = (gi.my_tehai + [gi.my_tsumohai] if gi.my_tsumohai else gi.my_tehai) + gi.fuuros_ms[gi.self_seat]
+
+    counter = {}
+    for t in tiles:
+        key = t if t not in MS_2_MJAI else MS_2_MJAI[t]
+        counter[key] = counter.get(key, 0) + 1
+
+    targets = [gi.bakaze, gi.jikaze, 'P', 'F', 'C']
+
+    return sum(1 for key in targets if counter.get(key, 0) >= 2)
+
 def self_hand_value(gi: GameInfo) -> int:
     v = count_dora(gi.doras_ms, gi.my_tehai + [gi.my_tsumohai] if gi.my_tsumohai else gi.my_tehai, gi.fuuros_ms[gi.self_seat])
+    v += count_yakuhai_toitsu(gi)
     if gi.oya == gi.self_seat:
         v += 1
-    if has_renfuu(gi, 'self'):
-        v += 2
     if count_self_z1928(gi) <= 6:
         v += 1
     return v
