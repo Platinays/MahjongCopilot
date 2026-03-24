@@ -434,6 +434,27 @@ def half_honors_discard(mjai_action: dict):
     mjai_action["pai"] = max(candidates.items(), key=lambda x: x[1])[0]
     mjai_action["meta_options"] = sorted(candidates.items(), key=lambda x: x[1], reverse=True)
 
+def self_honitsu(gi: GameInfo) -> bool:
+    hand_tiles = (gi.my_tehai + [gi.my_tsumohai] if gi.my_tsumohai else gi.my_tehai) + gi.fuuros_ms[gi.self_seat]
+
+    suit_count = {'m': 0, 'p': 0, 's': 0}
+    honor_count = 0
+
+    for t in hand_tiles:
+        if len(t) == 1 or t[1] == 'z':
+            honor_count += 1
+        elif t[1] in suit_count:
+            suit_count[t[1]] += 1
+
+    # ======================
+    # 0️⃣ 最大花色 + 字牌 ≥ 11 → 返回 True
+    # ======================
+    max_suit_cnt = max(suit_count.values())
+    if max_suit_cnt + honor_count >= 11:
+        return True
+    else:
+        return False
+
 
 def decide(reaction: dict, gi: GameInfo) -> dict:
     r = deepcopy(reaction)
@@ -470,6 +491,10 @@ def decide(reaction: dict, gi: GameInfo) -> dict:
     #     return r, "last_direct"
     # if "oya_direct" in self.mode and ts.mjai_oya_id == ts.mjai_self_id:
     #     return r, "oya_direct"
+
+    if self_honitsu(gi):
+        print("self_honitsu")
+        return r
     
     shanten = int(r['meta'].get('shanten', 0))
     if shanten <= 2:
@@ -503,7 +528,7 @@ def decide(reaction: dict, gi: GameInfo) -> dict:
         return r
         
     if junme <= 6:
-        if shanten - v >= 5:
+        if shanten - v >= 4:
             chiitoi_honitsu(r, gi)
             print("chiitoi_honitsu")
             return r
