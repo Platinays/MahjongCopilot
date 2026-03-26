@@ -346,6 +346,8 @@ def self_hand_value(gi: GameInfo) -> int:
     v += count_yakuhai_toitsu(gi)
     if gi.oya == gi.self_seat:
         v += 1
+    if compute_rank_deltas(gi)[0] == 4:
+        v += 1
     if count_self_z1928(gi) <= 6:
         v += 1
     return v

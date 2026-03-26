@@ -480,7 +480,7 @@ def decide(reaction: dict, gi: GameInfo) -> dict:
     
     if (
         any(len(gi.fuuros_ms[i]) >= 9 for i in range(4)) or
-        junme >= 7 and any(len(gi.fuuros_ms[i]) >= 6 for i in range(4))
+        (junme >= 7 and any(len(gi.fuuros_ms[i]) >= 6 for i in range(4)))
     ):
         print("others_fuuro")
         return r
@@ -523,16 +523,15 @@ def decide(reaction: dict, gi: GameInfo) -> dict:
         half_honors_discard(r)
 
     v = self_hand_value(gi)
-    if v >= 2:
-        print(f"v >= 2: v = {v}")
-        return r
+    # if v >= 2:
+    #     print(f"v >= 2: v = {v}")
+    #     return r
         
     if junme <= 6:
-        if shanten - v >= 4:
+        if shanten - v >= 5:
             chiitoi_honitsu(r, gi)
             print("chiitoi_honitsu")
             return r
-    
 
     # 默认策略，3向听或以上时，
     try:

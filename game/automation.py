@@ -438,7 +438,8 @@ class Automation:
                     reaction['tsumogiri'] = False
 
                 return reaction
-            except:
+            except Exception as e:
+                LOGGER.error(f'strategy_engine error: {e}, action: {action}')
                 return action
         else: 
             n = self.st.ai_randomize_choice     # randomize strength. 0 = no random, 5 = according to probability
