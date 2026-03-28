@@ -506,13 +506,13 @@ def decide(reaction: dict, gi: GameInfo) -> dict:
         haipaiori(r, gi)
         return r
         
-    if (gi.bakaze == 'S' and gi.kyoku == 4) or gi.bakaze == 'W':
+    if ((gi.bakaze == 'S' and gi.kyoku == 4) or gi.bakaze == 'W') and compute_rank_deltas[0] != 1:
         print("S4/W")
         return r
     
-    if gi.bakaze == 'S' and gi.kyoku in (3, 4) and compute_rank_deltas[0] == 3:
-        print("S3, third place")
-        return r
+    # if gi.bakaze == 'S' and gi.kyoku in (3, 4) and compute_rank_deltas[0] == 3:
+    #     print("S3, third place")
+    #     return r
         
     if junme <= 6 and len(gi.fuuros_ms[gi.self_seat]) == 0:
         print("反转字牌打出顺序，reverse_honors_discard")
