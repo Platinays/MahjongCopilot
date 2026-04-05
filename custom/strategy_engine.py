@@ -131,7 +131,79 @@ def uniform_honors_discard(mjai_action: dict, gi: GameInfo, excl_dora=True, excl
         mjai_action["pai"] = random.choice(list(honors.keys()))
 
 
-def reverse_honors_discard(mjai_action: dict, gi: GameInfo, excl_dora=True, excl_renfuu=True):
+# def reverse_honors_discard(mjai_action: dict, gi: GameInfo, excl_dora=True, excl_renfuu=True):
+#     """
+#     将字牌的 meta_options 概率进行“逆序重排”：
+#     保留原概率集合，但按排序后反向分配。
+
+#     只在 type=='dahai' 且原始最高概率牌是字牌时执行。
+#     对手中数量 >=2 的字牌不调整。
+
+#     排除逻辑：
+#     - excl_dora: 排除宝牌
+#     - excl_renfuu: 排除连风牌（自风且等于场风的牌）
+#     """
+
+#     honors_keys = ["E", "S", "W", "N", "C", "F", "P"]
+
+#     # 1️⃣ type 检查
+#     if mjai_action.get("type") != "dahai":
+#         return
+
+#     options: dict = dict(mjai_action.get("meta_options", []))
+#     if not options:
+#         return
+
+#     # 2️⃣ 原始最高概率牌是否是字牌
+#     orig_max_tile = max(options.items(), key=lambda x: x[1])[0]
+#     if orig_max_tile not in honors_keys:
+#         return
+
+#     # 3️⃣ 统计手中每种字牌数量
+#     hand_tiles = gi.my_tehai + [gi.my_tsumohai] if gi.my_tsumohai else gi.my_tehai
+#     tile_count = {}
+#     for t in hand_tiles:
+#         t_str = t
+#         if t_str in honors_keys:
+#             tile_count[t_str] = tile_count.get(t_str, 0) + 1
+
+#     # 4️⃣ 只保留字牌且数量 < 2
+#     honors = {k: v for k, v in options.items()
+#               if k in honors_keys and tile_count.get(k, 0) < 2}
+
+#     # 5️⃣ 排除宝牌
+#     if excl_dora:
+#         honors = {k: v for k, v in honors.items()
+#                   if not is_normal_dora(k, gi.doras_ms)}
+
+#     # 6️⃣ 排除连风牌
+#     if excl_renfuu and gi.jikaze == gi.bakaze:
+#         honors = {k: v for k, v in honors.items() if k != gi.bakaze}
+
+#     # 7️⃣ 逆序分配概率
+#     if honors:
+#         # 按原概率排序（从大到小）
+#         sorted_items = sorted(honors.items(), key=lambda x: x[1], reverse=True)
+
+#         keys_sorted = [k for k, _ in sorted_items]
+#         values_sorted = [v for _, v in sorted_items]
+
+#         # 反转概率
+#         reversed_values = list(reversed(values_sorted))
+
+#         # 重新赋值
+#         for k, new_v in zip(keys_sorted, reversed_values):
+#             options[k] = new_v
+
+#     # 8️⃣ 更新
+#     mjai_action["meta_options"] = sorted(options.items(), key=lambda x: x[1], reverse=True)
+
+#     # 9️⃣ 随机选择（仍然只从筛选后的字牌）
+#     if options:
+#         mjai_action["pai"] = max(options.items(), key=lambda x: x[1])[0]
+
+
+def reverse_honors_discard(mjai_action: dict, gi: "GameInfo", excl_dora=True, excl_renfuu=True):
     """
     将字牌的 meta_options 概率进行“逆序重排”：
     保留原概率集合，但按排序后反向分配。
@@ -142,6 +214,9 @@ def reverse_honors_discard(mjai_action: dict, gi: GameInfo, excl_dora=True, excl
     排除逻辑：
     - excl_dora: 排除宝牌
     - excl_renfuu: 排除连风牌（自风且等于场风的牌）
+
+    新增逻辑：
+    - 如果三元牌（C, F, P）中已有两种手牌数量 >=2，则第三种三元牌不调整概率。
     """
 
     honors_keys = ["E", "S", "W", "N", "C", "F", "P"]
@@ -162,8 +237,7 @@ def reverse_honors_discard(mjai_action: dict, gi: GameInfo, excl_dora=True, excl
     # 3️⃣ 统计手中每种字牌数量
     hand_tiles = gi.my_tehai + [gi.my_tsumohai] if gi.my_tsumohai else gi.my_tehai
     tile_count = {}
-    for t in hand_tiles:
-        t_str = t
+    for t_str in hand_tiles:
         if t_str in honors_keys:
             tile_count[t_str] = tile_count.get(t_str, 0) + 1
 
@@ -171,10 +245,18 @@ def reverse_honors_discard(mjai_action: dict, gi: GameInfo, excl_dora=True, excl
     honors = {k: v for k, v in options.items()
               if k in honors_keys and tile_count.get(k, 0) < 2}
 
+    # 4.5️⃣ 三元牌限制
+    san_gen = ["C", "F", "P"]
+    san_gen_count_ge2 = [k for k in san_gen if tile_count.get(k, 0) >= 2]
+    if len(san_gen_count_ge2) >= 2:
+        # 排除第三种三元牌
+        third_san_gen = [k for k in san_gen if k not in san_gen_count_ge2]
+        for k in third_san_gen:
+            honors.pop(k, None)
+
     # 5️⃣ 排除宝牌
     if excl_dora:
-        honors = {k: v for k, v in honors.items()
-                  if not is_normal_dora(k, gi.doras_ms)}
+        honors = {k: v for k, v in honors.items() if not is_normal_dora(k, gi.doras_ms)}
 
     # 6️⃣ 排除连风牌
     if excl_renfuu and gi.jikaze == gi.bakaze:
@@ -195,13 +277,13 @@ def reverse_honors_discard(mjai_action: dict, gi: GameInfo, excl_dora=True, excl
         for k, new_v in zip(keys_sorted, reversed_values):
             options[k] = new_v
 
-    # 8️⃣ 更新
+    # 8️⃣ 更新 meta_options（保持从高到低排序）
     mjai_action["meta_options"] = sorted(options.items(), key=lambda x: x[1], reverse=True)
 
     # 9️⃣ 随机选择（仍然只从筛选后的字牌）
     if options:
         mjai_action["pai"] = max(options.items(), key=lambda x: x[1])[0]
-
+        
 
 def haipaiori(mjai_action: dict, gi: GameInfo):
     """
